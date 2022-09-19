@@ -77,8 +77,6 @@ func New(opts ...Option) (*MySQLStorage, error) {
 	return &MySQLStorage{db: cfg.db}, nil
 }
 
-const timestampFormat = "2006-01-02 15:04:05"
-
 // RetrieveAuthTokens reads the DEP OAuth tokens for name DEP name.
 func (s *MySQLStorage) RetrieveAuthTokens(ctx context.Context, name string) (*client.OAuth1Tokens, error) {
 	var (
@@ -86,7 +84,7 @@ func (s *MySQLStorage) RetrieveAuthTokens(ctx context.Context, name string) (*cl
 		consumerSecret    sql.NullString
 		accessToken       sql.NullString
 		accessSecret      sql.NullString
-		accessTokenExpiry sql.NullString
+		accessTokenExpiry sql.NullTime
 	)
 	err := s.db.QueryRowContext(
 		ctx, `
@@ -117,7 +115,6 @@ WHERE
 	if !consumerKey.Valid { // all auth token fields are set together
 		return nil, storage.ErrNotFound
 	}
-	accessTokenExpiryTime, err := time.Parse(timestampFormat, accessTokenExpiry.String)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +123,7 @@ WHERE
 		ConsumerSecret:    consumerSecret.String,
 		AccessToken:       accessToken.String,
 		AccessSecret:      accessSecret.String,
-		AccessTokenExpiry: accessTokenExpiryTime,
+		AccessTokenExpiry: accessTokenExpiry.Time,
 	}, nil
 }
 
@@ -149,7 +146,7 @@ ON DUPLICATE KEY UPDATE
 		tokens.ConsumerSecret,
 		tokens.AccessToken,
 		tokens.AccessSecret,
-		tokens.AccessTokenExpiry.Format(timestampFormat),
+		tokens.AccessTokenExpiry,
 	)
 	return err
 }
@@ -161,7 +158,7 @@ func (s *MySQLStorage) RetrieveConfig(ctx context.Context, name string) (*client
 	var baseURL sql.NullString
 	err := s.db.QueryRowContext(
 		ctx,
-		`SELECT config_base_url FROM dep_names WHERE name = ?;`,
+		`SELECT config_base_url FROM nano_dep_names WHERE name = ?;`,
 		name,
 	).Scan(
 		&baseURL,
@@ -184,7 +181,7 @@ func (s *MySQLStorage) RetrieveConfig(ctx context.Context, name string) (*client
 func (s *MySQLStorage) StoreConfig(ctx context.Context, name string, config *client.Config) error {
 	_, err := s.db.ExecContext(
 		ctx, `
-INSERT INTO dep_names
+INSERT INTO nano_dep_names
 	(name, config_base_url)
 VALUES 
 	(?, ?) as new
@@ -202,11 +199,11 @@ ON DUPLICATE KEY UPDATE
 func (s *MySQLStorage) RetrieveAssignerProfile(ctx context.Context, name string) (profileUUID string, modTime time.Time, err error) {
 	var (
 		profileUUID_ sql.NullString
-		modTime_     sql.NullString
+		modTime_     sql.NullTime
 	)
 	if err := s.db.QueryRowContext(
 		ctx,
-		`SELECT assigner_profile_uuid, assigner_profile_uuid_at FROM dep_names WHERE name = ?;`,
+		`SELECT assigner_profile_uuid, assigner_profile_uuid_at FROM nano_dep_names WHERE name = ?;`,
 		name,
 	).Scan(
 		&profileUUID_, &modTime_,
@@ -221,10 +218,7 @@ func (s *MySQLStorage) RetrieveAssignerProfile(ctx context.Context, name string)
 		profileUUID = profileUUID_.String
 	}
 	if modTime_.Valid {
-		modTime, err = time.Parse(timestampFormat, modTime_.String)
-		if err != nil {
-			return "", time.Time{}, err
-		}
+		modTime = modTime_.Time
 	}
 	return profileUUID, modTime, nil
 }
@@ -233,7 +227,7 @@ func (s *MySQLStorage) RetrieveAssignerProfile(ctx context.Context, name string)
 func (s *MySQLStorage) StoreAssignerProfile(ctx context.Context, name string, profileUUID string) error {
 	_, err := s.db.ExecContext(
 		ctx, `
-INSERT INTO dep_names
+INSERT INTO nano_dep_names
 	(name, assigner_profile_uuid, assigner_profile_uuid_at)
 VALUES
 	(?, ?, CURRENT_TIMESTAMP) as new
@@ -253,7 +247,7 @@ func (s *MySQLStorage) RetrieveCursor(ctx context.Context, name string) (string,
 	var cursor sql.NullString
 	if err := s.db.QueryRowContext(
 		ctx,
-		`SELECT syncer_cursor FROM dep_names WHERE name = ?;`,
+		`SELECT syncer_cursor FROM nano_dep_names WHERE name = ?;`,
 		name,
 	).Scan(
 		&cursor,
@@ -273,7 +267,7 @@ func (s *MySQLStorage) RetrieveCursor(ctx context.Context, name string) (string,
 func (s *MySQLStorage) StoreCursor(ctx context.Context, name, cursor string) error {
 	_, err := s.db.ExecContext(
 		ctx, `
-INSERT INTO dep_names
+INSERT INTO nano_dep_names
 	(name, syncer_cursor)
 VALUES
 	(?, ?) as new
@@ -289,7 +283,7 @@ ON DUPLICATE KEY UPDATE
 func (s *MySQLStorage) StoreTokenPKI(ctx context.Context, name string, pemCert []byte, pemKey []byte) error {
 	_, err := s.db.ExecContext(
 		ctx, `
-INSERT INTO dep_names
+INSERT INTO nano_dep_names
 	(name, tokenpki_cert_pem, tokenpki_key_pem)
 VALUES
 	(?, ?, ?) as new
@@ -308,7 +302,7 @@ ON DUPLICATE KEY UPDATE
 func (s *MySQLStorage) RetrieveTokenPKI(ctx context.Context, name string) (pemCert []byte, pemKey []byte, err error) {
 	if err := s.db.QueryRowContext(
 		ctx,
-		`SELECT tokenpki_cert_pem, tokenpki_key_pem FROM dep_names WHERE name = ?;`,
+		`SELECT tokenpki_cert_pem, tokenpki_key_pem FROM nano_dep_names WHERE name = ?;`,
 		name,
 	).Scan(
 		&pemCert, &pemKey,

@@ -1,4 +1,4 @@
-CREATE TABLE dep_names (
+CREATE TABLE nano_dep_names (
     name VARCHAR(255) NOT NULL,
 
     -- OAuth1 Tokens
