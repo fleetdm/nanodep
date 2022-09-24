@@ -97,10 +97,14 @@ func (a *Assigner) ProcessDeviceResponse(ctx context.Context, resp *godep.Device
 				"profile_uuid", device.ProfileUUID,
 			)
 		}
-		if strings.ToLower(device.OpType) == "added" {
-			// we currently only listen for an op_type of "added." the other
-			// op_types are ambiguous and it would be needless to assign the
-			// profile UUID every single time we get an update.
+		// We currently only listen for an op_type of "added", the other
+		// op_types are ambiguous and it would be needless to assign the
+		// profile UUID every single time we get an update.
+		if strings.ToLower(device.OpType) == "added" ||
+			// The op_type field is only applicable with the SyncDevices API call,
+			// Empty op_type come from the first call to FetchDevices without a cursor,
+			// and we do want to assign profiles to them.
+			strings.ToLower(device.OpType) == "" {
 			serials = append(serials, device.SerialNumber)
 		}
 	}

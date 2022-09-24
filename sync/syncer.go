@@ -15,7 +15,7 @@ import (
 // CursorStorage is where the device fetch and sync cursor can be stored and
 // retrieved for a given DEP name.
 type CursorStorage interface {
-	RetrieveCursor(ctx context.Context, name string) (string, error)
+	RetrieveCursor(ctx context.Context, name string) (cursor string, modTime time.Time, err error)
 	StoreCursor(ctx context.Context, name string, cursor string) error
 }
 
@@ -110,7 +110,7 @@ func (s *Syncer) Run(ctx context.Context) error {
 		false: "sync",
 	}
 	var resp *godep.DeviceResponse
-	cursor, err := s.store.RetrieveCursor(ctx, s.name)
+	cursor, _, err := s.store.RetrieveCursor(ctx, s.name)
 	if err != nil {
 		return err
 	}

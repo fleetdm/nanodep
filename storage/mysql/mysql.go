@@ -95,7 +95,7 @@ SELECT
 	access_secret,
 	access_token_expiry
 FROM
-    dep_names
+    nano_dep_names
 WHERE
     name = ?;`,
 		name,
@@ -131,7 +131,7 @@ WHERE
 func (s *MySQLStorage) StoreAuthTokens(ctx context.Context, name string, tokens *client.OAuth1Tokens) error {
 	_, err := s.db.ExecContext(
 		ctx, `
-INSERT INTO dep_names 
+INSERT INTO nano_dep_names
 	(name, consumer_key, consumer_secret, access_token, access_secret, access_token_expiry)
 VALUES 
 	(?, ?, ?, ?, ?, ?) as new
@@ -243,24 +243,27 @@ ON DUPLICATE KEY UPDATE
 // RetrieveCursor reads the reads the DEP fetch and sync cursor for name DEP name.
 //
 // Returns an empty cursor if the cursor does not exist.
-func (s *MySQLStorage) RetrieveCursor(ctx context.Context, name string) (string, error) {
-	var cursor sql.NullString
+func (s *MySQLStorage) RetrieveCursor(ctx context.Context, name string) (cursor string, modTime time.Time, err error) {
+	var (
+		cursor_  sql.NullString
+		cursorAt sql.NullTime
+	)
 	if err := s.db.QueryRowContext(
 		ctx,
-		`SELECT syncer_cursor FROM nano_dep_names WHERE name = ?;`,
+		`SELECT syncer_cursor, syncer_cursor_at FROM nano_dep_names WHERE name = ?;`,
 		name,
 	).Scan(
-		&cursor,
+		&cursor_, &cursorAt,
 	); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return "", nil
+			return "", time.Time{}, nil
 		}
-		return "", err
+		return "", time.Time{}, err
 	}
-	if !cursor.Valid {
-		return "", nil
+	if !cursor_.Valid {
+		return "", time.Time{}, nil
 	}
-	return cursor.String, nil
+	return cursor_.String, cursorAt.Time, nil
 }
 
 // StoreCursor saves the DEP fetch and sync cursor for name DEP name.
@@ -268,11 +271,12 @@ func (s *MySQLStorage) StoreCursor(ctx context.Context, name, cursor string) err
 	_, err := s.db.ExecContext(
 		ctx, `
 INSERT INTO nano_dep_names
-	(name, syncer_cursor)
+	(name, syncer_cursor, syncer_cursor_at)
 VALUES
-	(?, ?) as new
+	(?, ?, CURRENT_TIMESTAMP) as new
 ON DUPLICATE KEY UPDATE
-	syncer_cursor = new.syncer_cursor`,
+	syncer_cursor = new.syncer_cursor,
+	syncer_cursor_at = new.syncer_cursor_at;`,
 		name,
 		cursor,
 	)

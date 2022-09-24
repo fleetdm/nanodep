@@ -22,7 +22,7 @@ func TestMySQLStorage(t *testing.T) {
 
 	storagetest.Run(t, func(t *testing.T) storage.AllStorage {
 		dbName := initTestDB(t)
-		testDSN := fmt.Sprintf("nanodep:insecure@tcp(localhost:4242)/%s?charset=utf8mb4&loc=UTC", dbName)
+		testDSN := fmt.Sprintf("nanodep:insecure@tcp(localhost:4242)/%s?charset=utf8mb4&loc=UTC&parseTime=true", dbName)
 		s, err := New(WithDSN(testDSN))
 		if err != nil {
 			t.Fatal(err)
