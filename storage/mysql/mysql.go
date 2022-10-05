@@ -134,13 +134,13 @@ func (s *MySQLStorage) StoreAuthTokens(ctx context.Context, name string, tokens 
 INSERT INTO nano_dep_names
 	(name, consumer_key, consumer_secret, access_token, access_secret, access_token_expiry)
 VALUES 
-	(?, ?, ?, ?, ?, ?) as new
+	(?, ?, ?, ?, ?, ?)
 ON DUPLICATE KEY UPDATE 
-	consumer_key = new.consumer_key,
-	consumer_secret = new.consumer_secret,
-	access_token = new.access_token,
-	access_secret = new.access_secret,
-	access_token_expiry = new.access_token_expiry;`,
+	consumer_key = VALUES(consumer_key),
+	consumer_secret = VALUES(consumer_secret),
+	access_token = VALUES(access_token),
+	access_secret = VALUES(access_secret),
+	access_token_expiry = VALUES(access_token_expiry);`,
 		name,
 		tokens.ConsumerKey,
 		tokens.ConsumerSecret,
@@ -184,9 +184,9 @@ func (s *MySQLStorage) StoreConfig(ctx context.Context, name string, config *cli
 INSERT INTO nano_dep_names
 	(name, config_base_url)
 VALUES 
-	(?, ?) as new
+	(?, ?)
 ON DUPLICATE KEY UPDATE
-	config_base_url = new.config_base_url;`,
+	config_base_url = VALUES(config_base_url);`,
 		name,
 		config.BaseURL,
 	)
@@ -230,10 +230,10 @@ func (s *MySQLStorage) StoreAssignerProfile(ctx context.Context, name string, pr
 INSERT INTO nano_dep_names
 	(name, assigner_profile_uuid, assigner_profile_uuid_at)
 VALUES
-	(?, ?, CURRENT_TIMESTAMP) as new
+	(?, ?, CURRENT_TIMESTAMP)
 ON DUPLICATE KEY UPDATE
-	assigner_profile_uuid = new.assigner_profile_uuid,
-	assigner_profile_uuid_at = new.assigner_profile_uuid_at;`,
+	assigner_profile_uuid = VALUES(assigner_profile_uuid),
+	assigner_profile_uuid_at = VALUES(assigner_profile_uuid_at);`,
 		name,
 		profileUUID,
 	)
@@ -273,10 +273,10 @@ func (s *MySQLStorage) StoreCursor(ctx context.Context, name, cursor string) err
 INSERT INTO nano_dep_names
 	(name, syncer_cursor, syncer_cursor_at)
 VALUES
-	(?, ?, CURRENT_TIMESTAMP) as new
+	(?, ?, CURRENT_TIMESTAMP)
 ON DUPLICATE KEY UPDATE
-	syncer_cursor = new.syncer_cursor,
-	syncer_cursor_at = new.syncer_cursor_at;`,
+	syncer_cursor = VALUES(syncer_cursor),
+	syncer_cursor_at = VALUES(syncer_cursor_at);`,
 		name,
 		cursor,
 	)
@@ -290,10 +290,10 @@ func (s *MySQLStorage) StoreTokenPKI(ctx context.Context, name string, pemCert [
 INSERT INTO nano_dep_names
 	(name, tokenpki_cert_pem, tokenpki_key_pem)
 VALUES
-	(?, ?, ?) as new
+	(?, ?, ?)
 ON DUPLICATE KEY UPDATE
-	tokenpki_cert_pem = new.tokenpki_cert_pem,
-	tokenpki_key_pem = new.tokenpki_key_pem;`,
+	tokenpki_cert_pem = VALUES(tokenpki_cert_pem),
+	tokenpki_key_pem = VALUES(tokenpki_key_pem);`,
 		name,
 		pemCert,
 		pemKey,
