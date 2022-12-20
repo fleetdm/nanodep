@@ -60,7 +60,7 @@ func (c *Client) AssignProfile(ctx context.Context, name, uuid string, serials .
 	// historically this has been an HTTP PUT and the DEP simulator depsim
 	// requires this. however modern Apple documentation says this is a POST
 	// now. we still use PUT here for compatibility.
-	return resp, c.do(ctx, name, http.MethodPut, "/profile/devices", req, resp)
+	return resp, c.doWithErrHook(ctx, name, http.MethodPut, "/profile/devices", req, resp)
 }
 
 // DefineProfile uses the Apple "Define a Profile" command to attempt to create a profile.
@@ -71,5 +71,5 @@ func (c *Client) AssignProfile(ctx context.Context, name, uuid string, serials .
 // See https://developer.apple.com/documentation/devicemanagement/define_a_profile
 func (c *Client) DefineProfile(ctx context.Context, name string, profile *Profile) (*ProfileResponse, error) {
 	resp := new(ProfileResponse)
-	return resp, c.do(ctx, name, http.MethodPost, "/profile", profile, resp)
+	return resp, c.doWithErrHook(ctx, name, http.MethodPost, "/profile", profile, resp)
 }

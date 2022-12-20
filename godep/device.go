@@ -75,7 +75,7 @@ func (c *Client) FetchDevices(ctx context.Context, name string, opts ...DeviceRe
 		opt(req)
 	}
 	resp := new(DeviceResponse)
-	return resp, c.do(ctx, name, http.MethodPost, "/server/devices", req, resp)
+	return resp, c.doWithErrHook(ctx, name, http.MethodPost, "/server/devices", req, resp)
 }
 
 // SyncDevices uses the Apple "Sync the List of Devices" API endpoint to get
@@ -91,7 +91,7 @@ func (c *Client) SyncDevices(ctx context.Context, name string, opts ...DeviceReq
 		opt(req)
 	}
 	resp := new(DeviceResponse)
-	return resp, c.do(ctx, name, http.MethodPost, "/devices/sync", req, resp)
+	return resp, c.doWithErrHook(ctx, name, http.MethodPost, "/devices/sync", req, resp)
 }
 
 // IsCursorExhausted returns true if err is a DEP "exhausted cursor" error.

@@ -78,7 +78,8 @@ type Client struct {
 	store ClientStorage
 
 	// an HTTP client that handles DEP API authentication and session management
-	client depclient.Doer
+	client  depclient.Doer
+	errHook func(ctx context.Context, err error) error
 }
 
 // ClientOption defines the functional options type for NewClient.
@@ -91,6 +92,17 @@ type ClientOption func(*Client)
 func WithMiddleware(mw func(depclient.Doer) depclient.Doer) ClientOption {
 	return func(c *Client) {
 		c.client = mw(c.client)
+	}
+}
+
+// WithErrHook installs a hook function that is called with the error resulting
+// from any request, after transformation of the response's body to an
+// HTTPError if needed. It gets called even in case of success, in that case
+// with a nil error. It can return a new error to be returned by the Client, or
+// the original error.
+func WithErrHook(hook func(ctx context.Context, err error) error) ClientOption {
+	return func(c *Client) {
+		c.errHook = hook
 	}
 }
 
@@ -114,6 +126,14 @@ func NewClient(store ClientStorage, client *http.Client, opts ...ClientOption) *
 		opt(depClient)
 	}
 	return depClient
+}
+
+func (c *Client) doWithErrHook(ctx context.Context, name, method, path string, in interface{}, out interface{}) error {
+	err := c.do(ctx, name, method, path, in, out)
+	if c.errHook != nil {
+		err = c.errHook(ctx, err)
+	}
+	return err
 }
 
 // do executes the HTTP request using the client's HTTP client which
