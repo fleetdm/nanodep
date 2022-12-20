@@ -68,7 +68,20 @@ type Client struct {
 	store ClientStorage
 
 	// an HTTP client that handles DEP API authentication and session management
-	client *http.Client
+	client depclient.Doer
+}
+
+// ClientOption defines the functional options type for NewClient.
+type ClientOption func(*Client)
+
+// WithMiddleware applies a middleware function to the client's HTTP client.
+// It can be useful to transform the HTTP request just before it is sent, or
+// to intercept the HTTP response and error before they are returned to the
+// caller.
+func WithMiddleware(mw func(depclient.Doer) depclient.Doer) ClientOption {
+	return func(c *Client) {
+		c.client = mw(c.client)
+	}
 }
 
 // NewClient creates new Client and reads authentication and config data
@@ -76,16 +89,21 @@ type Client struct {
 // transport in a new NanoDEP transport (which transparently handles
 // authentication and session management). If client is nil then
 // http.DefaultClient is used.
-func NewClient(store ClientStorage, client *http.Client) *Client {
+func NewClient(store ClientStorage, client *http.Client, opts ...ClientOption) *Client {
 	if client == nil {
 		client = http.DefaultClient
 	}
 	t := depclient.NewTransport(client.Transport, client, store, nil)
 	client = depclient.NewClient(client, t)
-	return &Client{
+	depClient := &Client{
 		store:  store,
 		client: client,
 	}
+
+	for _, opt := range opts {
+		opt(depClient)
+	}
+	return depClient
 }
 
 // do executes the HTTP request using the client's HTTP client which
