@@ -57,6 +57,16 @@ func httpErrorContains(err error, status int, s string) bool {
 	return false
 }
 
+// authErrorContains is the same as httpErrorContains except that it checks if
+// err is an depclient.AuthError instead of HTTPError.
+func authErrorContains(err error, status int, s string) bool {
+	var authErr *depclient.AuthError
+	if errors.As(err, &authErr) && authErr.StatusCode == status && bytes.Contains(authErr.Body, []byte(s)) {
+		return true
+	}
+	return false
+}
+
 // ClientStorage provides the required data needed to connect to the Apple DEP APIs.
 type ClientStorage interface {
 	depclient.AuthTokensRetriever

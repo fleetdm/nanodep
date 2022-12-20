@@ -51,5 +51,6 @@ func (c *Client) AccountDetail(ctx context.Context, name string) (*AccountRespon
 // accepted by the user.
 // See https://developer.apple.com/documentation/devicemanagement/device_assignment/authenticating_with_a_device_enrollment_program_dep_server/interpreting_error_codes
 func IsTermsNotSigned(err error) bool {
-	return httpErrorContains(err, http.StatusForbidden, "T_C_NOT_SIGNED")
+	return httpErrorContains(err, http.StatusForbidden, "T_C_NOT_SIGNED") ||
+		authErrorContains(err, http.StatusForbidden, "T_C_NOT_SIGNED")
 }
