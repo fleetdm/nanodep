@@ -57,6 +57,16 @@ func httpErrorContains(err error, status int, s string) bool {
 	return false
 }
 
+// authErrorContains is the same as httpErrorContains except that it checks if
+// err is an depclient.AuthError instead of HTTPError.
+func authErrorContains(err error, status int, s string) bool {
+	var authErr *depclient.AuthError
+	if errors.As(err, &authErr) && authErr.StatusCode == status && bytes.Contains(authErr.Body, []byte(s)) {
+		return true
+	}
+	return false
+}
+
 // ClientStorage provides the required data needed to connect to the Apple DEP APIs.
 type ClientStorage interface {
 	depclient.AuthTokensRetriever
@@ -68,7 +78,22 @@ type Client struct {
 	store ClientStorage
 
 	// an HTTP client that handles DEP API authentication and session management
-	client *http.Client
+	client    depclient.Doer
+	afterHook func(ctx context.Context, err error) error
+}
+
+// ClientOption defines the functional options type for NewClient.
+type ClientOption func(*Client)
+
+// WithAfterHook installs a hook function that is called with the error
+// resulting from any request, after transformation of the response's body to
+// an HTTPError if needed. It gets called regardless of success or failure of
+// the request, with a nil error if it succeeded. It can return a new error to
+// be returned by the Client, or the original error.
+func WithAfterHook(hook func(ctx context.Context, err error) error) ClientOption {
+	return func(c *Client) {
+		c.afterHook = hook
+	}
 }
 
 // NewClient creates new Client and reads authentication and config data
@@ -76,16 +101,29 @@ type Client struct {
 // transport in a new NanoDEP transport (which transparently handles
 // authentication and session management). If client is nil then
 // http.DefaultClient is used.
-func NewClient(store ClientStorage, client *http.Client) *Client {
+func NewClient(store ClientStorage, client *http.Client, opts ...ClientOption) *Client {
 	if client == nil {
 		client = http.DefaultClient
 	}
 	t := depclient.NewTransport(client.Transport, client, store, nil)
 	client = depclient.NewClient(client, t)
-	return &Client{
+	depClient := &Client{
 		store:  store,
 		client: client,
 	}
+
+	for _, opt := range opts {
+		opt(depClient)
+	}
+	return depClient
+}
+
+func (c *Client) doWithAfterHook(ctx context.Context, name, method, path string, in interface{}, out interface{}) error {
+	err := c.do(ctx, name, method, path, in, out)
+	if c.afterHook != nil {
+		err = c.afterHook(ctx, err)
+	}
+	return err
 }
 
 // do executes the HTTP request using the client's HTTP client which
