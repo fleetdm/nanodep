@@ -78,31 +78,21 @@ type Client struct {
 	store ClientStorage
 
 	// an HTTP client that handles DEP API authentication and session management
-	client  depclient.Doer
-	errHook func(ctx context.Context, err error) error
+	client    depclient.Doer
+	afterHook func(ctx context.Context, err error) error
 }
 
 // ClientOption defines the functional options type for NewClient.
 type ClientOption func(*Client)
 
-// WithMiddleware applies a middleware function to the client's HTTP client.
-// It can be useful to transform the HTTP request just before it is sent, or
-// to intercept the HTTP response and error before they are returned to the
-// caller.
-func WithMiddleware(mw func(depclient.Doer) depclient.Doer) ClientOption {
+// WithAfterHook installs a hook function that is called with the error
+// resulting from any request, after transformation of the response's body to
+// an HTTPError if needed. It gets called regardless of success or failure of
+// the request, with a nil error if it succeeded. It can return a new error to
+// be returned by the Client, or the original error.
+func WithAfterHook(hook func(ctx context.Context, err error) error) ClientOption {
 	return func(c *Client) {
-		c.client = mw(c.client)
-	}
-}
-
-// WithErrHook installs a hook function that is called with the error resulting
-// from any request, after transformation of the response's body to an
-// HTTPError if needed. It gets called even in case of success, in that case
-// with a nil error. It can return a new error to be returned by the Client, or
-// the original error.
-func WithErrHook(hook func(ctx context.Context, err error) error) ClientOption {
-	return func(c *Client) {
-		c.errHook = hook
+		c.afterHook = hook
 	}
 }
 
@@ -128,10 +118,10 @@ func NewClient(store ClientStorage, client *http.Client, opts ...ClientOption) *
 	return depClient
 }
 
-func (c *Client) doWithErrHook(ctx context.Context, name, method, path string, in interface{}, out interface{}) error {
+func (c *Client) doWithAfterHook(ctx context.Context, name, method, path string, in interface{}, out interface{}) error {
 	err := c.do(ctx, name, method, path, in, out)
-	if c.errHook != nil {
-		err = c.errHook(ctx, err)
+	if c.afterHook != nil {
+		err = c.afterHook(ctx, err)
 	}
 	return err
 }

@@ -43,7 +43,7 @@ type Limit struct {
 // See https://developer.apple.com/documentation/devicemanagement/get_account_detail
 func (c *Client) AccountDetail(ctx context.Context, name string) (*AccountResponse, error) {
 	resp := new(AccountResponse)
-	return resp, c.doWithErrHook(ctx, name, http.MethodGet, "/account", nil, resp)
+	return resp, c.doWithAfterHook(ctx, name, http.MethodGet, "/account", nil, resp)
 }
 
 // IsTermsNotSigned returns true if err is a DEP "terms and conditions not
